@@ -19,3 +19,8 @@ PYTHONPATH:
   - .
 ignoreFiles:
   - .gitignore
+
+variables:
+  search_phrase: "Tech"
+  news_category: "Tech"
+  months: 1

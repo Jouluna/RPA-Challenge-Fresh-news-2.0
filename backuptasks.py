@@ -1,3 +1,7 @@
+# This is a backup from before I changed the process_article method
+# I keep having issues with stale elements due to the dynamic reload
+# of the website so this is what I had previous to the changes I made
+
 import os
 import re
 import logging
@@ -85,10 +89,9 @@ def dowload_image(url, download_dir):
 def process_article(article, past_date, download_dir, search_phrase): # I added this function I had originally in main since it might crash due to DOM changes. I was getting a stale element issue before.
     """Processing articles in the website."""
     try:
-        # I will relocate elements for arach article to prevent the stale issue
-        title_element = browser.find_element("css:.PagePromo-title", parent=article)
-        date_element = browser.find_element("css:.Timestamp-template", parent=article)
-        description_element = browser.find_element("css:.PagePromo-description", parent=article)
+        title_element = browser.find_element("css:.SearchResultsModule-results .PageListStandardD .PageList-items-item .PagePromo-title")
+        date_element = browser.find_element("xpath://span[@class='Timestamp-template']") # I had issues with the bot finfing the css class so I did the relative xpath 
+        description_element = browser.find_element("css:.SearchResultsModule-results .PageListStandardD .PageList-items-item .PagePromo-description")
         
         try: # In case there are no images in the container of the news the bot will just keep going.
             image_element = browser.find_element("css:img", parent=article)
@@ -109,10 +112,8 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
         # malfunction I will just keep it simple for this bot. The page only uses these for recent posts so they are still
         # under the date scope we want
         
-        # Some dates use words lie xx time ago, I will parse these as today so that the validation can still continue on since there are too many cases. However the
-        # date using the 'newest' filter we select previous to this method execution does keep the scope within the same year we are so we don't fall off the scope anyways.
-        try: 
-            article_date = datetime.strptime(date, "%B %d")
+        try: # some dates just use values like now or xx hours ago so I will just keep them as a timestamp since they are still within the scope
+            article_date = datetime.strptime(date, "%B %d, %Y")
         except ValueError:
             logging.warning("Date format not recognized, setting to current timestamp.")
             article_date = datetime.now()

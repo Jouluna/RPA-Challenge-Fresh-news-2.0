@@ -1,6 +1,7 @@
 import os
 import re
 import logging
+import xlsxwriter
 from robocorp.tasks import task
 from datetime import datetime, timedelta
 from RPA.Browser.Selenium import Selenium
@@ -21,11 +22,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def get_variables():
     """Getting item variables from config."""
-    """items.get_input_work_item()
-    search_phrase = items.get_work_item_variable("search_phrase")
-    months = items.get_work_item_variable("months")
-    category = items.get_work_item_variable("category")
-    return search_phrase, category, months"""
+    # items.get_input_work_item()
+    # search_phrase = items.get_work_item_variable("search_phrase")
+    # months = items.get_work_item_variable("months")
+    # category = items.get_work_item_variable("category")
+    # return search_phrase, category, months"""
 
     items.get_input_work_item() # Added exception in case the work items cannot be fetch.
     try:
@@ -84,12 +85,12 @@ def dowload_image(url, download_dir):
 def process_article(article, past_date, download_dir, search_phrase): # I added this function I had originally in main since it might crash due to DOM changes. I was getting a stale element issue before.
     """Processing articles in the website."""
     try:
-        title_element = browser.find_element("css:.PagePromoContentIcons-text", parent=article) # # AP does not separate the header nor the description of the new, they all go into the same span 
-        date_element = browser.find_element("xpath://span[@class='Timestamp-template']", parent=article) # I had issues with the bot finfing the css class so I did the relative xpath 
-        description_element = browser.find_element("css:.PagePromoContentIcons-text", parent=article)
+        title_element = browser.find_element("css:.SearchResultsModule-results .PageListStandardD .PageList-items-item .PagePromo-title")
+        date_element = browser.find_element("xpath://span[@class='Timestamp-template']") # I had issues with the bot finfing the css class so I did the relative xpath 
+        description_element = browser.find_element("css:.SearchResultsModule-results .PageListStandardD .PageList-items-item .PagePromo-description")
         
         try: # In case there are no images in the container of the news the bot will just keep going.
-            image_element = browser.find_element("css:img", parent=article)
+            image_element = browser.find_element("css:.PageListStandardD .PageList-items .PageList-items-item .PagePromo-media", parent=article)
         except Exception:
             logging.warning("No image found in current 'article'.")
             image_element = None
@@ -98,20 +99,26 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
         date = date_element.text if date_element else ""
         description = description_element.text if description_element else ""
 
+        logging.warning(f"Processing article: {title} - {date}") # Debugging
+
         # The page sometimes does not have a valid date in the footer of the news, for example it uses the word now 
         # or 1 hour ago (etc), however to keep the process going I will simply create a try catch so that it continues
         # for any of the cases that use words just keep moving on since I haven't found all the cases for this website's 
         # footer nor they are documented most probably there might be other labels I have not seen yet, so to prevent any 
         # malfunction I will just keep it simple for this bot. The page only uses these for recent posts so they are still
         # under the date scope we want
-        try:
-            if datetime.strptime(date, "%B %d, %Y") < past_date:
-                return None  # Moving to next article
+        
+        try: # some dates just use values like now or xx hours ago so I will just keep them as a timestamp since they are still within the scope
+            article_date = datetime.strptime(date, "%B %d, %Y")
         except ValueError:
-            logging.warning(f"Invalid date format found: {date}. Moving to next article.")
-            return None
+            logging.warning("Date format not recognized, setting to current timestamp.")
+            article_date = datetime.now()
 
-        image_url = image_element.get_attribute("src") if image_element else ""
+        if article_date < past_date:
+            logging.info(f"Article '{title}' is older than {past_date}. Skipping.")
+            return None  # Skip this article if it is older than the date I calculated
+
+        image_url = image_element.get_attribute("href") if image_element else ""
         count = count_matches(title, search_phrase)
         contains_money_flag = contains_money(title)
         image_file = dowload_image(image_url, download_dir) if image_url else ""
@@ -122,6 +129,22 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
         logging.error(f"Error processing article: {str(e)}")
         return None
 
+def write_to_excel(news_list, file_path): # Created to substitute the RPA.Excel.Files method 
+    """Write news list to an Excel file using xlsxwriter."""
+    workbook = xlsxwriter.Workbook(file_path)
+    worksheet = workbook.add_worksheet("News Articles")
+
+    # Header of the file as to the challenge instructions
+    headers = ["Title", "Date", "Description", "Image Filename", "Phrase Matches", "Has Money"]
+    for col_num, header in enumerate(headers):
+        worksheet.write(0, col_num, header)
+
+    # Writing all the news data
+    for row_num, row_data in enumerate(news_list, start=1):
+        for col_num, cell_data in enumerate(row_data):
+            worksheet.write(row_num, col_num, cell_data)
+
+    workbook.close()
 
 @task
 def minimal_task():
@@ -139,7 +162,7 @@ def minimal_task():
     browser.input_text("xpath:/html/body/div[2]/bsp-header/div[2]/div[3]/bsp-search-overlay/div/form/label/input", search_phrase)
     browser.click_button("xpath:/html/body/div[2]/bsp-header/div[2]/div[3]/bsp-search-overlay/div/form/button")
     
-    #Little trick to make the bot wait until a page loads.
+    # make the bot wait until a page loads the container with the news.
     browser.wait_until_page_contains_element("css:.SearchResultsModule-main", timeout=10) # This module is the container of all the news results.
 
     # Setting the page filter to the newest articles so that we can
@@ -147,20 +170,34 @@ def minimal_task():
     dropdown = browser.find_element("xpath:/html/body/div[3]/bsp-search-results-module/form/div[2]/div/bsp-search-filters/div/main/div[1]/div/div/div/label/select")
     select = Select(dropdown)
     select.select_by_visible_text("Newest")
+    browser.wait_until_page_contains_element("css:.SearchResultsModule-main", timeout=15)
 
     """Getting all articles."""
     news_list = []
-    articles = browser.find_elements("css:.PageList-items-item")
-    for article in articles:
+    articles = browser.find_elements("xpath:/html/body/div[3]/bsp-search-results-module/form/div[2]/div/bsp-search-filters/div/main/div[3]/bsp-list-loadmore/div[2]")
+    logging.warning(f"Found {len(articles)} articles.") # Debugging
+    for index, article in enumerate(articles):
+        logging.info(f"Processing article {index + 1}/{len(articles)}")
         processed_article = process_article(article, past_date, download_dir, search_phrase)
         if processed_article:
-            news_list.extend(processed_article)
+            news_list.append(processed_article)
+
+    logging.warning(f"Processed {len(news_list)} articles.") # Debugging
+    logging.warning(f"news_list contents: {news_list}") # Debugging
 
     """Getting excel file ready"""
-    excel.create_workbook("output/fresh_news.xlsx")
-    excel.write_worksheet(news_list, header=["Title", "Date", "Description", "Image Filename", "Phrase Matches", "Has Money"])
-    excel.save_workbook()
-    excel.close_workbook()
+    # The RPA.Excel.Files was not working correctly so I substitued it with xlsxwriter,
+    # seems a function was deprecated 'write_worksheet' since it was not resolvable in
+    # the latest version.
+
+    # Before xlsxwriter:
+    # excel.create_workbook("output/fresh_news.xlsx")
+    # excel.write_worksheet(news_list, header=["Title", "Date", "Description", "Image Filename", "Phrase Matches", "Has Money"])
+    # excel.save_workbook()
+    # excel.close_workbook()
+
+    # Write news in array to Excel file
+    write_to_excel(news_list, "output/fresh_news.xlsx")
 
     # Close the browser
     browser.close_all_browsers()

@@ -130,7 +130,7 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
         return[title, date, description, image_file, count, contains_money_flag]
 
     except StaleElementReferenceException as e:
-        logging.error(f"StaleElementReferenceException: {str(e)} - re-locating article elements.")
+        logging.error(f"StaleElementReferenceException - re-locating article elements.")
         return None
     except Exception as e:
         logging.error(f"Error processing article: {str(e)}")
@@ -186,9 +186,19 @@ def minimal_task():
 
     for index, article in enumerate(articles):
         logging.info(f"Processing article {index + 1}/{len(articles)}")
-        processed_article = process_article(article, past_date, download_dir, search_phrase)
-        if processed_article:
-            news_list.append(processed_article)
+        retries = 3 # Added retry due to stale elements issues. 
+        while retries > 0:
+            try:
+                processed_article = process_article(article, past_date, download_dir, search_phrase)
+                if processed_article:
+                    news_list.append(processed_article)
+                break
+            except StaleElementReferenceException as e:
+                logging.error(f"StaleElementReferenceException - Retrying.")
+                retries -= 1
+                if retries == 0:
+                    logging.error(f"Failed to process article {index + 1} after 3 retries.")
+                    continue  # Skip this article and move to the next
 
     logging.info(f"Processed {len(news_list)} articles.") # Debugging
 

@@ -4,11 +4,6 @@
 tasks:
   Run Task:
     shell: python -m robocorp.tasks run tasks.py
-
-variables:
-  search_phrase: "Computer"
-  news_category: "STORIES"
-  months: 1
   
 environmentConfigs:
   - environment_windows_amd64_freeze.yaml

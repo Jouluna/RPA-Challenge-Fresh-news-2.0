@@ -16,5 +16,6 @@ This project was created for the Fresh News challenge for the recrutiing process
 
 Despite these challenges, the project provided to be quite a learning experience in how websites behave these days, also a good intro into web scraping techniques and data extraction processes. Addressing the roadblocks required quite a few tries for solutions and meticulous attention to detail. 
 
-But at the end, it was a fun.
+At the end, it was a fun.
+
 

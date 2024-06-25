@@ -9,6 +9,7 @@ from RPA.Excel.Files import Files
 from RPA.HTTP import HTTP
 from RPA.Robocloud.Items import Items
 from selenium.webdriver.support.ui import Select
+from selenium.common.exceptions import StaleElementReferenceException
 
 #Libraries I'm using
 browser = Selenium()
@@ -85,7 +86,7 @@ def dowload_image(url, download_dir):
 def process_article(article, past_date, download_dir, search_phrase): # I added this function I had originally in main since it might crash due to DOM changes. I was getting a stale element issue before.
     """Processing articles in the website."""
     try:
-        # I will relocate elements for arach article to prevent the stale issue
+        # I will relocate elements for each article to prevent the stale issue
         title_element = browser.find_element("css:.PagePromo-title", parent=article)
         date_element = browser.find_element("css:.Timestamp-template", parent=article)
         description_element = browser.find_element("css:.PagePromo-description", parent=article)
@@ -128,6 +129,9 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
 
         return[title, date, description, image_file, count, contains_money_flag]
 
+    except StaleElementReferenceException as e:
+        logging.error(f"StaleElementReferenceException: {str(e)} - re-locating article elements.")
+        return None
     except Exception as e:
         logging.error(f"Error processing article: {str(e)}")
         return None
@@ -179,6 +183,7 @@ def minimal_task():
     news_list = []
     articles = browser.find_elements("css:.PageList-items-item")
     logging.info(f"Found {len(articles)} articles.") # Debugging
+
     for index, article in enumerate(articles):
         logging.info(f"Processing article {index + 1}/{len(articles)}")
         processed_article = process_article(article, past_date, download_dir, search_phrase)
@@ -186,7 +191,6 @@ def minimal_task():
             news_list.append(processed_article)
 
     logging.info(f"Processed {len(news_list)} articles.") # Debugging
-    logging.info(f"news_list contents: {news_list}") # Debugging
 
     """Getting excel file ready"""
     # The RPA.Excel.Files was not working correctly so I substitued it with xlsxwriter,

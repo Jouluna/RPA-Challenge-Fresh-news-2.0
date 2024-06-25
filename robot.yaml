@@ -6,8 +6,8 @@ tasks:
     shell: python -m robocorp.tasks run tasks.py
 
 variables:
-  search_phrase: "Tech"
-  news_category: "Tech"
+  search_phrase: "Computer"
+  news_category: "STORIES"
   months: 1
   
 environmentConfigs:

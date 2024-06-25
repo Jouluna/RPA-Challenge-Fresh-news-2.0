@@ -33,13 +33,13 @@ def get_variables():
         search_phrase = items.get_work_item_variable("search_phrase")
     except KeyError:
         logging.warning("search_phrase not found in work item. Using default value.")
-        search_phrase = "AI"
+        search_phrase = "Tech"
 
     try:
         category = items.get_work_item_variable("news_category")
     except KeyError:
         logging.warning("news_category not found in work item. Using default value.")
-        category = "AI"  # If not found it uses a default value I set here
+        category = "Tech"  # If not found it uses a default value I set here
     
     try:
         months = items.get_work_item_variable("months")
@@ -90,7 +90,7 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
         description_element = browser.find_element("css:.SearchResultsModule-results .PageListStandardD .PageList-items-item .PagePromo-description")
         
         try: # In case there are no images in the container of the news the bot will just keep going.
-            image_element = browser.find_element("css:.PageListStandardD .PageList-items .PageList-items-item .PagePromo-media", parent=article)
+            image_element = browser.find_element("css:img", parent=article)
         except Exception:
             logging.warning("No image found in current 'article'.")
             image_element = None
@@ -118,7 +118,7 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
             logging.info(f"Article '{title}' is older than {past_date}. Skipping.")
             return None  # Skip this article if it is older than the date I calculated
 
-        image_url = image_element.get_attribute("href") if image_element else ""
+        image_url = image_element.get_attribute("src") if image_element else ""
         count = count_matches(title, search_phrase)
         contains_money_flag = contains_money(title)
         image_file = dowload_image(image_url, download_dir) if image_url else ""
@@ -174,7 +174,7 @@ def minimal_task():
 
     """Getting all articles."""
     news_list = []
-    articles = browser.find_elements("xpath:/html/body/div[3]/bsp-search-results-module/form/div[2]/div/bsp-search-filters/div/main/div[3]/bsp-list-loadmore/div[2]")
+    articles = browser.find_elements("css:.PageList-items-item")
     logging.warning(f"Found {len(articles)} articles.") # Debugging
     for index, article in enumerate(articles):
         logging.info(f"Processing article {index + 1}/{len(articles)}")

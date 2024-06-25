@@ -100,7 +100,7 @@ def process_article(article, past_date, download_dir, search_phrase): # I added 
         date = date_element.text if date_element else ""
         description = description_element.text if description_element else ""
 
-        logging.warning(f"Processing article: {title} - {date}") # Debugging
+        logging.info(f"Processing article: {title} - {date}") # Debugging
 
         # The page sometimes does not have a valid date in the footer of the news, for example it uses the word now 
         # or 1 hour ago (etc), however to keep the process going I will simply create a try catch so that it continues
@@ -178,15 +178,15 @@ def minimal_task():
     """Getting all articles."""
     news_list = []
     articles = browser.find_elements("css:.PageList-items-item")
-    logging.warning(f"Found {len(articles)} articles.") # Debugging
+    logging.info(f"Found {len(articles)} articles.") # Debugging
     for index, article in enumerate(articles):
         logging.info(f"Processing article {index + 1}/{len(articles)}")
         processed_article = process_article(article, past_date, download_dir, search_phrase)
         if processed_article:
             news_list.append(processed_article)
 
-    logging.warning(f"Processed {len(news_list)} articles.") # Debugging
-    logging.warning(f"news_list contents: {news_list}") # Debugging
+    logging.info(f"Processed {len(news_list)} articles.") # Debugging
+    logging.info(f"news_list contents: {news_list}") # Debugging
 
     """Getting excel file ready"""
     # The RPA.Excel.Files was not working correctly so I substitued it with xlsxwriter,
